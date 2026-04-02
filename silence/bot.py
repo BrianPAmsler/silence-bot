@@ -13,6 +13,7 @@ import io
 import asyncio
 import voice
 import numpy as np
+from bot_states import *
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -23,196 +24,12 @@ intents.voice_states = True
 
 client = discord.Client(intents=intents)
 
-class UserState:
-    def __init__(self, name: str, data: Any = None):
-        self.name = name
-        self.data = data
-        self.timestamp = datetime.datetime.now()
-
 user_state: dict[int, UserState] = {}
 
-async def queue_sound(channel: discord.abc.GuildChannel, sound: config.Sound):
-    delay = max(sound.data.duration, sound.distribution.sample() * 60)
-    print(delay)
-    await asyncio.sleep(delay)
-    
-    if sound in config.get_server_config(channel.guild.id).sounds:
-        print("play sound: " + sound.name) # actually play sound
-        await voice.play_sound(channel, sound.data)
-        event_loop = asyncio.get_event_loop()
-        event_loop.create_task(queue_sound(channel, sound))
-
-async def choose_distribution(message: discord.Message, server: discord.Guild, channel: discord.abc.GuildChannel, name: str, data: voice.ReplayableAudioSource) -> UserState:
-    if message.content == "linear":
-        await message.channel.send("Please type the minimum delay in minutes:")
-        return UserState("LinearMin", (server, channel, name, data))
-    elif message.content == "normal":
-        await message.channel.send("Please type the mean delay in minutes:")
-        return UserState("NormalMean", (server, channel, name, data))
-    else:
-        await message.channel.send("Please choose either `linear` or `normal`.")
-
-    return None
-
-async def linear_min(message: discord.Message, server: discord.Guild, channel: discord.abc.GuildChannel, name: str, data: voice.ReplayableAudioSource) -> UserState:
-    try:
-        value = float(message.content)
-        if value < 0:
-            await message.channel.send("Value must be greater than zero.")
-            return None
-        
-        await message.channel.send("Please type the maximum delay in minutes:")
-
-        return UserState("LinearMax", (server, channel, name, data, value))
-    except ValueError:
-        await message.channel.send("Input must be a number.")
-        return None
-    
-async def linear_max(message: discord.Message, server: discord.Guild, channel: discord.abc.GuildChannel, name: str, data: voice.ReplayableAudioSource, min: float) -> UserState:
-    try:
-        value = float(message.content)
-        if value < min:
-            await message.channel.send(f"Value must be greater than the minimum ({min}).")
-            return None
-        
-        sound = config.Sound(name, channel.id, data, probability.Linear(min, value))
-        cfg = config.get_server_config(server.id)
-
-        cfg.sounds.append(sound)
-        config.update_server_config(server.id, cfg)
-
-        event_loop = asyncio.get_event_loop()
-        event_loop.create_task(queue_sound(channel, sound))
-        
-        await message.channel.send("Sound added.")
-
-        return UserState("Default")
-    except ValueError:
-        await message.channel.send("Input must be a number.")
-        return None
-    
-async def normal_mean(message: discord.Message, server: discord.Guild, channel: discord.abc.GuildChannel, name: str, data: voice.ReplayableAudioSource) -> UserState:
-    try:
-        value = float(message.content)
-        if value < 0:
-            await message.channel.send("Value must be greater than zero.")
-            return None
-        
-        await message.channel.send("Please type the standard deviation:")
-
-        return UserState("NormalSigma", (server, channel, name, data, value))
-    except ValueError:
-        await message.channel.send("Input must be a number.")
-        return None
-    
-async def normal_sigma(message: discord.Message, server: discord.Guild, channel: discord.abc.GuildChannel, name: str, data: voice.ReplayableAudioSource, mean: float) -> UserState:
-    try:
-        value = float(message.content)
-        if value < 0:
-            await message.channel.send("Value must be greater than zero.")
-            return None
-        
-        sound = config.Sound(name, channel.id, data, probability.Normal(mean, value))
-        cfg = config.get_server_config(server.id)
-
-        cfg.sounds.append(sound)
-        config.update_server_config(server.id, cfg)
-        
-        event_loop = asyncio.get_event_loop()
-        event_loop.create_task(queue_sound(channel, sound))
-
-        await message.channel.send("Sound added.")
-
-        return UserState("Default")
-    except ValueError:
-        await message.channel.send("Input must be a number.")
-        return None
-
-async def upload_sound(message: discord.Message, server: discord.Guild, channel: discord.abc.GuildChannel) -> UserState:
-    sound_files: list[discord.Attachment] = []
-
-    for attachment in message.attachments:
-        if attachment.content_type.startswith("audio"):
-            sound_files.append(attachment)
-
-    if len(sound_files) == 0:
-        await message.channel.send("Message does not contain a sound file.")
-        return None
-    
-    bytes = io.BytesIO(await sound_files[0].read())
-    data, samplerate = soundfile.read(bytes, dtype=np.int16)
-    bytes.seek(0)
-    duration = len(data) / float(samplerate)
-
-    if duration > 10:
-        await message.channel.send("Audio file must be 10 seconds or less.")
-        return None
-    
-    await message.channel.send("Please choose which type of random distribution you would like to use for randomly playing your sound.\n" \
-        "Type either `linear` or `normal`.")
-    return UserState("Distribution", (server, channel, sound_files[0].filename, voice.ReplayableAudioSource(discord.FFmpegPCMAudio(bytes, pipe=True), duration)))
-
-async def manage_server(message: discord.Message, server: discord.Guild) -> UserState:
-    command, *args = message.content.split(' ')
-    if command == "add-sound":
-        channel_id = 0
-        if len(args) == 1:
-            channel_id = int(args[0])
-        channel = server.get_channel(channel_id)
-
-        if channel is None or channel.type != discord.ChannelType.voice:
-            await message.channel.send("Invalid channel id.")
-            return None
-        
-        await message.channel.send("Please upload a sound file.")
-        return UserState("UploadSound", (server, channel))
-    
-    return None
-
-async def default_state(message: discord.Message) -> UserState:
-    command, *args = message.content.split(' ')
-    if command == "help":
-        await message.channel.send(
-            "Type `server <server_id>` to configure a server.\n" \
-            "Type `cancel` to cancel current action.")
-        return None
-    elif command == "server":
-        id = 0
-        if len(args) == 1:
-            id = int(args[0])
-        server = client.get_guild(id)
-
-        if server is None:
-            await message.channel.send("Invalid server id.")
-            return UserState("Default")
-
-        member = server.get_member(message.author.id)
-
-        if member is None:
-            await message.channel.send("You are not a member of this server.")
-            return UserState("Default")
-        
-        if not member.guild_permissions.administrator:
-            await message.channel.send("You do not have permission to manage this server.")
-            return UserState("Default")
-
-        await message.channel.send(
-            "Type `add-sound <voice-channel-id>` to add a sound to a voice channel.\n" \
-            "Type `give-user-permission <user-id>` to give a user permission to manage the bot on this server.\n" \
-            "Type `remove-user-permisssion <user-id>` to remove manage permissions from a user.\n" \
-            "Type `give-role-permission <role-id>` to give a role permission to manage the bot on this server.\n" \
-            "Type `remove-role-permission <role-id>` to remove manage permissions from a role.")
-        
-        return UserState("ManageServer", server)
-    
-    await message.channel.send("Type `help` for more info.")
-
-    return None
-
-
 async def process_dm_command(message: discord.Message, state: UserState) -> UserState:
+    # Maybe replace big if statement with a polymorphic class
     if state.name == "Default":
-        return await default_state(message)
+        return await default_state(client, message)
     elif message.content.startswith('cancel'):
         await message.channel.send("Cancelled.")
         return UserState("Default")
@@ -242,7 +59,6 @@ async def process_dm_command(message: discord.Message, state: UserState) -> User
 @client.event
 async def on_ready():
     update_servers()
-    await play_sounds()
     print(f'We have logged in as {client.user}')
 
 @client.event
@@ -260,6 +76,24 @@ async def on_message(message: discord.message.Message):
 
     if state is not None:
         user_state[message.author.id] = state
+    else:
+        user_state[message.author.id].timestamp = datetime.datetime.now()
+
+@client.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    # When a user leaves a channel, before.channel is Some and after.channel is None
+    if before.channel is None:
+        return
+    
+    members = [member for member in before.channel.members if member.id != client.user.id]
+
+    if len(members) == 0:
+        await asyncio.sleep(config.get_config().empty_server_timeout)
+        # Get a new 
+        channel = client.get_channel(before.channel.id)
+        members = [member for member in channel.members if member.id != client.user.id]
+        if len(members) == 0:
+            await voice.disable_channel(before.channel)
 
 @client.event
 async def on_guild_join(guild: discord.Guild):
@@ -284,22 +118,13 @@ def update_servers():
     # Add default config for connected servers that have no config
     for server in client.guilds:
         if config.get_server_config(server.id) is None:
-            config.update_server_config(server.id, config.ServerConfig())
-
-async def play_sounds():
-    for server in config.get_servers():
-        cfg = config.get_server_config(server)
-        guild = client.get_guild(server)
-        for sound in cfg.sounds:
-            channel = guild.get_channel(sound.channel_id)
-            await voice.enable_channel(channel)
-            event_loop = asyncio.get_event_loop()
-            event_loop.create_task(queue_sound(channel, sound))
-            
+            config.update_server_config(server.id, config.ServerConfig())        
 
 def start():
+    print("Loading configs...")
     config.get_config()
     config.load_server_configs()
+    print("Logging in...")
 
     try:
         with open("bot_token.txt") as file:

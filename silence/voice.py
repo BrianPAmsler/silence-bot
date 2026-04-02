@@ -46,6 +46,11 @@ async def disable_channel(channel: discord.VoiceChannel):
         await con.disconnect()
         del __connections[channel.id]
 
+def is_enabled(channel: discord.VoiceChannel):
+    global __connections
+
+    return channel.id in __connections
+
 async def play_sound(channel: discord.VoiceChannel, sound: ReplayableAudioSource):
     global __connections
 

@@ -13,7 +13,8 @@ from voice import ReplayableAudioSource
 @dataclass(frozen=True)
 class Config:
     command_timeout: int = 300
-    bot_channel_join_duration: int = 5
+    empty_server_timeout: int = 5
+    max_audio_clip_length: float = 10
 
 @dataclass
 class Sound:
@@ -24,7 +25,7 @@ class Sound:
 
 @dataclass
 class ServerConfig:
-    elevated_roles: list[str] = field(default_factory=lambda: [])
+    elevated_roles: list[int] = field(default_factory=lambda: [])
     elevated_members: list[int] = field(default_factory=lambda: [])
     sounds: list[Sound] = field(default_factory=lambda: [])
 
