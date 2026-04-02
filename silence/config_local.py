@@ -13,7 +13,7 @@ from voice import ReplayableAudioSource
 @dataclass(frozen=True)
 class Config:
     command_timeout: int = 300
-    empty_server_timeout: int = 5
+    empty_server_timeout: int = 120
     max_audio_clip_length: float = 10
 
 @dataclass
