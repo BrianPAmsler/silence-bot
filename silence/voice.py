@@ -7,28 +7,28 @@ import io
 __connections: dict[int, discord.VoiceClient] = {}
 
 class ReplayableAudioSource(discord.AudioSource):
-    def __init__(self, data: io.BytesIO, duration: float):
+    def __init__(self, source: discord.AudioSource, duration: float):
+        buffer = io.BytesIO()
         self.duration = duration
-        self.data = data
+        
+        chunk = source.read()
+        self.chunk_size = len(chunk)
+        while len(chunk) > 0:
+            buffer.write(chunk)
+            chunk = source.read()
+
+        self.data = buffer
         self.data.seek(0)
-        self.source = discord.FFmpegPCMAudio(self.data, pipe=True)
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-
-        del state['source']
-
-        return state
+        self.source_is_opus = source.is_opus()
 
     def read(self):
-        return self.source.read()
+        return self.data.read(self.chunk_size)
 
     def is_opus(self):
-        self.source.is_opus()
+        self.source_is_opus
     
-    def reset(self):
+    def seek(self, pos: int):
         self.data.seek(0)
-        self.source = discord.FFmpegPCMAudio(self.data, pipe=True)
 
 async def enable_channel(channel: discord.VoiceChannel):
     global __connections
@@ -51,5 +51,5 @@ async def play_sound(channel: discord.VoiceChannel, sound: ReplayableAudioSource
 
     if channel.id in __connections:
        con = __connections[channel.id]
-       sound.reset()
+       sound.seek(0)
        con.play(sound)

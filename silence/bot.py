@@ -150,7 +150,7 @@ async def upload_sound(message: discord.Message, server: discord.Guild, channel:
     
     await message.channel.send("Please choose which type of random distribution you would like to use for randomly playing your sound.\n" \
         "Type either `linear` or `normal`.")
-    return UserState("Distribution", (server, channel, sound_files[0].filename, voice.ReplayableAudioSource(bytes, duration)))
+    return UserState("Distribution", (server, channel, sound_files[0].filename, voice.ReplayableAudioSource(discord.FFmpegPCMAudio(bytes, pipe=True), duration)))
 
 async def manage_server(message: discord.Message, server: discord.Guild) -> UserState:
     command, *args = message.content.split(' ')
