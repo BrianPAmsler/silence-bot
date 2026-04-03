@@ -4,7 +4,7 @@ import discord
 import config_local as config
 import asyncio
 import probability
-import soundfile
+import pydub
 import io
 import numpy as np
 import shlex
@@ -134,9 +134,10 @@ async def upload_sound(message: discord.Message, server: discord.Guild, channel:
         return None
     
     bytes = io.BytesIO(await sound_files[0].read())
-    data, samplerate = soundfile.read(bytes, dtype=np.int16)
+    audio = pydub.AudioSegment.from_file(bytes)
     bytes.seek(0)
-    duration = len(data) / float(samplerate)
+    duration = len(audio) / 1000
+    print(duration)
 
     max_len = config.get_config().max_audio_clip_length
     if duration > max_len:

@@ -1,5 +1,5 @@
 discord.py[voice]
 jsonpickle
-soundfile
 numpy
 scipy
+pydub

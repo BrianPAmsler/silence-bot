@@ -8,7 +8,6 @@ import datetime
 import config_local as config
 import probability
 import jsonpickle
-import soundfile
 import io
 import asyncio
 import voice
