@@ -3,8 +3,9 @@ import asyncio
 import config_local as config
 import numpy as np
 import io
+from typing import Dict
 
-__connections: dict[int, discord.VoiceClient] = {}
+__connections: Dict[int, discord.VoiceClient] = {}
 
 class ReplayableAudioSource(discord.AudioSource):
     def __init__(self, source: discord.AudioSource, duration: float):

@@ -5,7 +5,7 @@ import jsonpickle
 import copy
 from os import path
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List
 import discord
 
 from voice import ReplayableAudioSource
@@ -25,15 +25,15 @@ class Sound:
 
 @dataclass
 class ServerConfig:
-    elevated_roles: list[int] = field(default_factory=lambda: [])
-    elevated_members: list[int] = field(default_factory=lambda: [])
-    sounds: list[Sound] = field(default_factory=lambda: [])
+    elevated_roles: List[int] = field(default_factory=lambda: [])
+    elevated_members: List[int] = field(default_factory=lambda: [])
+    sounds: List[Sound] = field(default_factory=lambda: [])
 
     def copy(self):
         return ServerConfig(self.elevated_roles.copy(), self.elevated_members.copy(), self.sounds.copy())
 
 __global_config: Config = None
-__server_config: dict[int, ServerConfig] = None
+__server_config = None
 
 def get_config() -> Config:
     global __global_config
@@ -119,7 +119,7 @@ def load_server_configs():
         except:
             pass
 
-def update_server_config(server_id: int, config: ServerConfig | None):
+def update_server_config(server_id: int, config: ServerConfig):
     global __server_config
     
     if __server_config is None:
@@ -143,7 +143,7 @@ def update_server_config(server_id: int, config: ServerConfig | None):
     except:
         pass
 
-def get_servers() -> list[int]:
+def get_servers() -> List[int]:
     global __server_config
     
     if __server_config is None:
