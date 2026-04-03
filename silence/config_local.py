@@ -4,36 +4,35 @@ import os
 import jsonpickle
 import copy
 from os import path
-from dataclasses import dataclass, field
 from typing import Any
 import discord
 
 from voice import ReplayableAudioSource
 
-@dataclass(frozen=True)
 class Config:
-    command_timeout: int = 300
-    empty_server_timeout: int = 120
-    max_audio_clip_length: float = 10
+    def __init__(self, command_timeout: int = 300, empty_server_timeout: int = 120, max_audio_clip_length: float = 10):
+        self.command_timeout = command_timeout
+        self.empty_server_timeout = 120
+        self.max_audio_clip_length = 10
 
-@dataclass
 class Sound:
-    name: str
-    channel_id: int
-    data: ReplayableAudioSource
-    distribution: probability.Distribution
+    def __init__(self, name: str, channel_id: int, data: ReplayableAudioSource, distribution: probability.Distribution):
+        self.name = name
+        self.channel_id = channel_id
+        self.data = data
+        self.distribution = distribution
 
-@dataclass
 class ServerConfig:
-    elevated_roles: list[int] = field(default_factory=lambda: [])
-    elevated_members: list[int] = field(default_factory=lambda: [])
-    sounds: list[Sound] = field(default_factory=lambda: [])
+    def __init__(self, elevated_roles: list = [], elevated_members: list = [], sounds: list = []):
+        self.elevated_roles = elevated_roles
+        self.elevated_members = elevated_members
+        self.sounds = sounds
 
     def copy(self):
         return ServerConfig(self.elevated_roles.copy(), self.elevated_members.copy(), self.sounds.copy())
 
 __global_config: Config = None
-__server_config: dict[int, ServerConfig] = None
+__server_config: dict = None
 
 def get_config() -> Config:
     global __global_config
@@ -119,7 +118,7 @@ def load_server_configs():
         except:
             pass
 
-def update_server_config(server_id: int, config: ServerConfig | None):
+def update_server_config(server_id: int, config: ServerConfig):
     global __server_config
     
     if __server_config is None:
@@ -143,7 +142,7 @@ def update_server_config(server_id: int, config: ServerConfig | None):
     except:
         pass
 
-def get_servers() -> list[int]:
+def get_servers() -> list:
     global __server_config
     
     if __server_config is None:

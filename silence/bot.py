@@ -24,7 +24,7 @@ intents.voice_states = True
 
 client = discord.Client(intents=intents)
 
-user_state: dict[int, UserState] = {}
+user_state: dict = {}
 
 async def process_dm_command(message: discord.Message, state: UserState) -> UserState:
     # Maybe replace big if statement with a polymorphic class

@@ -4,7 +4,7 @@ import config_local as config
 import numpy as np
 import io
 
-__connections: dict[int, discord.VoiceClient] = {}
+__connections: dict = {}
 
 class ReplayableAudioSource(discord.AudioSource):
     def __init__(self, source: discord.AudioSource, duration: float):
@@ -28,7 +28,7 @@ class ReplayableAudioSource(discord.AudioSource):
         self.source_is_opus
     
     def seek(self, pos: int):
-        self.data.seek(0)
+        self.data.seek(pos)
 
 async def enable_channel(channel: discord.VoiceChannel):
     global __connections
