@@ -359,6 +359,7 @@ async def default_state(client: discord.Client, message: discord.Message) -> Use
     if command == "help":
         await message.channel.send(
             "Type `server <server_id>` to configure a server.\n" \
+            "Type `get-info` to display the server and channel ids of the voice channel you are currently in.\n" \
             "Type `cancel` to cancel current action.")
         return None
     elif command == "server":
@@ -384,6 +385,26 @@ async def default_state(client: discord.Client, message: discord.Message) -> Use
         await message.channel.send(SERVER_MSG)
         
         return UserState("ManageServer", server)
+    elif command == "get-info":
+        voice_channel = None
+        for guild in client.guilds:
+            # Look for the user inside this specific server
+            member = guild.get_member(message.author.id)
+            
+            # If the user is in this server, check if they are in a voice channel
+            if member and member.voice and member.voice.channel:
+                voice_channel = member.voice.channel
+                break # Stop search
+
+        if voice_channel is None:
+            await message.channel.send("You are not in a vocie channel that this bot is a member of.")
+            return None
+
+        server_id = voice_channel.guild.id
+        voice_channel_id = voice_channel.id
+
+        await message.channel.send(f"server-id: `{server_id}`\nvoice-channel-id: `{voice_channel_id}`")
+        return None
     
     await message.channel.send("Type `help` for more info.")
 
