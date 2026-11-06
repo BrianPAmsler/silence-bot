@@ -354,12 +354,25 @@ def has_permission(member: discord.Member) -> bool:
         or member.id in cfg.elevated_members \
         or len((set(cfg.elevated_roles) & set([role.id for role in member.roles]))) > 0
 
+def get_voice_channel(client: discord.Client, member: discord.Member) -> discord.VoiceChannel:
+    voice_channel = None
+    for guild in client.guilds:
+        member = guild.get_member(member.id)
+        
+        if member and member.voice and member.voice.channel:
+            voice_channel = member.voice.channel
+            break
+
+    return voice_channel
+
 async def default_state(client: discord.Client, message: discord.Message) -> UserState:
     command, *args = message.content.split(' ')
     if command == "help":
         await message.channel.send(
             "Type `server <server_id>` to configure a server.\n" \
             "Type `get-info` to display the server and channel ids of the voice channel you are currently in.\n" \
+            "Type `enable` to enable the bot in the voice channel you are currently in.\n" \
+            "Type `disable` to disable the bot in the voice channel you are currently in.\n" \
             "Type `cancel` to cancel current action.")
         return None
     elif command == "server":
@@ -386,15 +399,7 @@ async def default_state(client: discord.Client, message: discord.Message) -> Use
         
         return UserState("ManageServer", server)
     elif command == "get-info":
-        voice_channel = None
-        for guild in client.guilds:
-            # Look for the user inside this specific server
-            member = guild.get_member(message.author.id)
-            
-            # If the user is in this server, check if they are in a voice channel
-            if member and member.voice and member.voice.channel:
-                voice_channel = member.voice.channel
-                break # Stop search
+        voice_channel = get_voice_channel(message.author)
 
         if voice_channel is None:
             await message.channel.send("You are not in a vocie channel that this bot is a member of.")
@@ -404,6 +409,36 @@ async def default_state(client: discord.Client, message: discord.Message) -> Use
         voice_channel_id = voice_channel.id
 
         await message.channel.send(f"server-id: `{server_id}`\nvoice-channel-id: `{voice_channel_id}`")
+        return None
+    elif command == "enable":
+        voice_channel = get_voice_channel(message.author)
+
+        if voice_channel is None:
+            await message.channel.send("You are not in a vocie channel that this bot is a member of.")
+            return None
+        
+        await voice.enable_channel(voice_channel)
+        event_loop = asyncio.get_event_loop()
+        cfg = config.get_server_config(server.id)
+
+        for sound in cfg.sounds:
+            if sound.channel_id == voice_channel.id:
+                event_loop.create_task(queue_sound(voice_channel, sound))
+
+        await message.channel.send("Channel enabled.")
+
+        return None
+    elif command == "disable":
+        voice_channel = get_voice_channel(message.author)
+
+        if voice_channel is None:
+            await message.channel.send("You are not in a vocie channel that this bot is a member of.")
+            return None
+        
+        await voice.disable_channel(voice_channel)
+
+        await message.channel.send("Channel disabled.")
+
         return None
     
     await message.channel.send("Type `help` for more info.")
