@@ -358,6 +358,7 @@ async def default_state(client: discord.Client, message: discord.Message) -> Use
     if command == "help":
         await message.channel.send(
             "Type `server <server_id>` to configure a server.\n" \
+            "Type `get-info` to display the server and channel ids of the voice channel you are currently in.\n" \
             "Type `cancel` to cancel current action.")
         return None
     elif command == "server":
@@ -383,6 +384,13 @@ async def default_state(client: discord.Client, message: discord.Message) -> Use
         await message.channel.send(SERVER_MSG)
         
         return UserState("ManageServer", server)
+    elif command == "get-info":
+        channel = message.author.voice.channel
+        server_id = channel.guild.id
+        voice_channel_id = channel.id
+
+        await message.channel.send(f"server-id: `{server_id}`\nvoice-channel-id: `{voice_channel_id}")
+        return None
     
     await message.channel.send("Type `help` for more info.")
 
